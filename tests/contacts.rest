@@ -1,0 +1,8 @@
+### Get all contacts
+GET http://localhost:3000/contacts
+
+### Get single contact by ID
+GET http://localhost:3000/contacts/{{contactId}}
+
+### Example with a specific ID (replace with actual ID from your database)
+GET http://localhost:3000/contacts/69068890604cdc5de3b56795
