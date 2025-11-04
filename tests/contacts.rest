@@ -6,3 +6,8 @@ GET http://localhost:3000/contacts/{{contactId}}
 
 ### Example with a specific ID (replace with actual ID from your database)
 GET http://localhost:3000/contacts/69068890604cdc5de3b56795
+
+1. 69068890604cdc5de3b56795
+2. 690688ac604cdc5de3b56797
+3. 690688c4604cdc5de3b56799
+4. 690688c4604cdc5de3b56800

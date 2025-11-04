@@ -20,7 +20,7 @@ module.exports = {
         
         // If no database specified in connection string, use a default
         if (!databaseName) {
-            databaseName = 'cse341-project1'; // CHANGE THIS TO YOUR DATABASE NAME
+            databaseName = 'cse341-project1'; 
             console.log(`⚠️ No database specified in connection string. Using default: ${databaseName}`);
         }
         
