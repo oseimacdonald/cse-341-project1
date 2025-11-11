@@ -11,8 +11,12 @@ const options = {
     },
     servers: [
       {
-        url: process.env.RENDER_URL || 'http://localhost:3000',
-        description: process.env.NODE_ENV === 'production' ? 'Production server' : 'Development server',
+        url: 'https://cse-341-project1-zzkm.onrender.com',
+        description: 'Production server',
+      },
+      {
+        url: 'http://localhost:3000',
+        description: 'Development server',
       },
     ],
   },
