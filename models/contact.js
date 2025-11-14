@@ -18,7 +18,7 @@ const contactSchema = new mongoose.Schema({
     email: {
         type: String,
         required: [true, 'Email is required'],
-        unique: true,
+        unique: true, // This creates an index automatically
         trim: true,
         lowercase: true,
         match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please enter a valid email']
@@ -43,8 +43,8 @@ const contactSchema = new mongoose.Schema({
     timestamps: true // This automatically adds createdAt and updatedAt
 });
 
-// Create index for better query performance
-contactSchema.index({ email: 1 });
-contactSchema.index({ lastName: 1, firstName: 1 });
+// Remove the duplicate email index since 'unique: true' already creates it
+// Only add custom indexes for queries you'll actually use
+contactSchema.index({ lastName: 1, firstName: 1 }); // For sorting/filtering by name
 
 module.exports = mongoose.model('Contact', contactSchema);

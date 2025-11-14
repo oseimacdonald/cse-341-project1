@@ -12,10 +12,7 @@ module.exports = {
             return callback();
         }
 
-        mongoose.connect(connectionString, {
-            useNewUrlParser: true,
-            useUnifiedTopology: true,
-        })
+        mongoose.connect(connectionString)
         .then(() => {
             isConnected = true;
             console.log('✅ Connected to MongoDB with Mongoose');
