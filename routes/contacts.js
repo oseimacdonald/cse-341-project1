@@ -1,7 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getDb } = require('../config/database');
-const { ObjectId } = require('mongodb');
+const Contact = require('../models/contact'); // Import the Mongoose model
 
 /**
  * @swagger
@@ -74,8 +73,7 @@ const { ObjectId } = require('mongodb');
  */
 router.get('/', async (req, res) => {
     try {
-        const db = getDb();
-        const contacts = await db.collection('contacts').find().toArray();
+        const contacts = await Contact.find().sort({ createdAt: -1 });
         res.json(contacts);
     } catch (error) {
         console.error('Error fetching contacts:', error);
@@ -112,22 +110,17 @@ router.get('/', async (req, res) => {
  */
 router.get('/:id', async (req, res) => {
     try {
-        const db = getDb();
+        const contact = await Contact.findById(req.params.id);
         
-        if (!ObjectId.isValid(req.params.id)) {
-            return res.status(400).json({ error: 'Invalid contact ID format' });
-        }
-
-        const contact = await db.collection('contacts').findOne({ 
-            _id: new ObjectId(req.params.id) 
-        });
-
         if (!contact) {
             return res.status(404).json({ error: 'Contact not found' });
         }
 
         res.json(contact);
     } catch (error) {
+        if (error.name === 'CastError') {
+            return res.status(400).json({ error: 'Invalid contact ID format' });
+        }
         console.error('Error fetching contact:', error);
         res.status(500).json({ error: 'Failed to fetch contact' });
     }
@@ -169,42 +162,31 @@ router.get('/:id', async (req, res) => {
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                 id:
- *                   type: string
+ *               $ref: '#/components/schemas/Contact'
  *       400:
- *         description: Missing required fields
+ *         description: Validation error or missing fields
+ *       409:
+ *         description: Email already exists
  *       500:
  *         description: Server error
  */
 router.post('/', async (req, res) => {
     try {
-        const db = getDb();
-        const { firstName, lastName, email, favoriteColor, birthday } = req.body;
-
-        if (!firstName || !lastName || !email || !favoriteColor || !birthday) {
-            return res.status(400).json({ error: 'All fields (firstName, lastName, email, favoriteColor, birthday) are required' });
-        }
-
-        const newContact = {
-            firstName,
-            lastName,
-            email,
-            favoriteColor,
-            birthday,
-            createdAt: new Date()
-        };
-
-        const result = await db.collection('contacts').insertOne(newContact);
+        const contact = new Contact(req.body);
+        const savedContact = await contact.save();
         
-        res.status(201).json({ 
-            message: 'Contact created successfully',
-            id: result.insertedId 
-        });
+        res.status(201).json(savedContact);
     } catch (error) {
+        if (error.name === 'ValidationError') {
+            const errors = Object.values(error.errors).map(err => err.message);
+            return res.status(400).json({ 
+                error: 'Validation failed',
+                details: errors 
+            });
+        }
+        if (error.code === 11000) {
+            return res.status(409).json({ error: 'Email already exists' });
+        }
         console.error('Error creating contact:', error);
         res.status(500).json({ error: 'Failed to create contact' });
     }
@@ -247,55 +229,46 @@ router.post('/', async (req, res) => {
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                 modifiedCount:
- *                   type: number
+ *               $ref: '#/components/schemas/Contact'
  *       400:
- *         description: Invalid ID format or no fields provided
+ *         description: Invalid ID format or validation error
  *       404:
  *         description: Contact not found
+ *       409:
+ *         description: Email already exists
  *       500:
  *         description: Server error
  */
 router.put('/:id', async (req, res) => {
     try {
-        const db = getDb();
-        
-        if (!ObjectId.isValid(req.params.id)) {
-            return res.status(400).json({ error: 'Invalid contact ID format' });
-        }
-
-        const { firstName, lastName, email, favoriteColor, birthday } = req.body;
-
-        if (!firstName && !lastName && !email && !favoriteColor && !birthday) {
-            return res.status(400).json({ error: 'At least one field must be provided for update' });
-        }
-
-        const updateFields = {};
-        if (firstName) updateFields.firstName = firstName;
-        if (lastName) updateFields.lastName = lastName;
-        if (email) updateFields.email = email;
-        if (favoriteColor) updateFields.favoriteColor = favoriteColor;
-        if (birthday) updateFields.birthday = birthday;
-        updateFields.updatedAt = new Date();
-
-        const result = await db.collection('contacts').updateOne(
-            { _id: new ObjectId(req.params.id) },
-            { $set: updateFields }
+        const contact = await Contact.findByIdAndUpdate(
+            req.params.id,
+            req.body,
+            { 
+                new: true, // Return updated document
+                runValidators: true // Run validation on update
+            }
         );
 
-        if (result.matchedCount === 0) {
+        if (!contact) {
             return res.status(404).json({ error: 'Contact not found' });
         }
 
-        res.status(200).json({ 
-            message: 'Contact updated successfully',
-            modifiedCount: result.modifiedCount 
-        });
+        res.status(200).json(contact);
     } catch (error) {
+        if (error.name === 'CastError') {
+            return res.status(400).json({ error: 'Invalid contact ID format' });
+        }
+        if (error.name === 'ValidationError') {
+            const errors = Object.values(error.errors).map(err => err.message);
+            return res.status(400).json({ 
+                error: 'Validation failed',
+                details: errors 
+            });
+        }
+        if (error.code === 11000) {
+            return res.status(409).json({ error: 'Email already exists' });
+        }
         console.error('Error updating contact:', error);
         res.status(500).json({ error: 'Failed to update contact' });
     }
@@ -324,8 +297,8 @@ router.put('/:id', async (req, res) => {
  *               properties:
  *                 message:
  *                   type: string
- *                 deletedCount:
- *                   type: number
+ *                 deletedContact:
+ *                   $ref: '#/components/schemas/Contact'
  *       400:
  *         description: Invalid ID format
  *       404:
@@ -335,25 +308,20 @@ router.put('/:id', async (req, res) => {
  */
 router.delete('/:id', async (req, res) => {
     try {
-        const db = getDb();
-        
-        if (!ObjectId.isValid(req.params.id)) {
-            return res.status(400).json({ error: 'Invalid contact ID format' });
-        }
+        const contact = await Contact.findByIdAndDelete(req.params.id);
 
-        const result = await db.collection('contacts').deleteOne({ 
-            _id: new ObjectId(req.params.id) 
-        });
-
-        if (result.deletedCount === 0) {
+        if (!contact) {
             return res.status(404).json({ error: 'Contact not found' });
         }
 
         res.status(200).json({ 
             message: 'Contact deleted successfully',
-            deletedCount: result.deletedCount 
+            deletedContact: contact 
         });
     } catch (error) {
+        if (error.name === 'CastError') {
+            return res.status(400).json({ error: 'Invalid contact ID format' });
+        }
         console.error('Error deleting contact:', error);
         res.status(500).json({ error: 'Failed to delete contact' });
     }
